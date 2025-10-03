@@ -1,0 +1,6 @@
+# 黑名单玩家列表
+# 这些玩家不会被检测
+blacklist-players:
+  - "Admin"
+  - "Moderator"
+  - "Console"

@@ -1,0 +1,53 @@
+# ChatFilter 配置文件
+# 版本: 2.0.0
+
+# 配置文件版本号
+config-version: "2.0.0"
+
+# 是否启用插件
+enabled: true
+
+# 检测设置
+detection-settings:
+  # 是否使用正则表达式检测
+  use-regex: false
+  # 是否区分大小写
+  case-sensitive: false
+
+# 日志设置
+log-settings:
+  # 日志级别: SEVERE, WARNING, INFO, FINE
+  level: "INFO"
+  # 是否启用文件日志
+  log-to-file: true
+  # 日志文件名
+  log-file: "chatfilter.log"
+
+# 阶梯式处罚配置
+# 根据违规次数执行不同的处罚
+punishment-stages:
+  1:
+    # 第一次违规的处罚
+    warning-message: "&c[第1次警告] 请文明聊天! 检测到敏感词: %word%"
+    commands:
+      - "say 警告: 玩家 %player% 使用了敏感词，请大家文明聊天"
+  2:
+    # 第二次违规的处罚
+    warning-message: "&c[第2次警告] 您已被禁言10分钟! 敏感词: %word%"
+    commands:
+      - "mute %player% 10m 使用敏感词: %word%"
+  3:
+    # 第三次违规的处罚
+    warning-message: "&c[第3次警告] 您已被禁言1小时! 敏感词: %word%"
+    commands:
+      - "mute %player% 1h 多次使用敏感词: %word%"
+  4:
+    # 第四次违规的处罚
+    warning-message: "&c[第4次警告] 您已被临时封禁1天! 敏感词: %word%"
+    commands:
+      - "tempban %player% 1d 严重违规使用敏感词"
+  5:
+    # 第五次及以上的处罚
+    warning-message: "&c[严重警告] 您已被临时封禁3天! 敏感词: %word%"
+    commands:
+      - "tempban %player% 3d 屡次违规使用敏感词"
