@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -21,8 +22,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-public class ChatFilter extends JavaPlugin implements Listener {
+public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
 
     // 核心组件
     private AhoCorasick wordMatcher;
@@ -64,6 +66,9 @@ public class ChatFilter extends JavaPlugin implements Listener {
 
             // 注册事件监听器
             getServer().getPluginManager().registerEvents(this, this);
+
+            // 注册命令和 Tab 补全器
+            Objects.requireNonNull(getCommand("chatfilter")).setTabCompleter(this);
 
             // 设置每日重置任务
             setupDailyResetTask();
@@ -620,5 +625,105 @@ public class ChatFilter extends JavaPlugin implements Listener {
         sender.sendMessage("§e日志级别: §7" + logger.getCurrentLevel());
         sender.sendMessage("§e文件日志: §7" + (logger.isFileLoggingEnabled() ? "启用" : "禁用"));
         return true;
+    }
+
+    /**
+     * Tab 补全功能
+     * 为命令提供智能补全建议
+     */
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!command.getName().equalsIgnoreCase("chatfilter")) {
+            return null;
+        }
+
+        List<String> completions = new ArrayList<>();
+
+        if (args.length == 1) {
+            // 第一级命令补全
+            List<String> commands = Arrays.asList(
+                "reload", "addword", "removeword", "listwords",
+                "addblacklist", "removeblacklist", "listblacklist",
+                "test", "violations", "resetviolations", "stats"
+            );
+            
+            String input = args[0].toLowerCase();
+            completions = commands.stream()
+                .filter(cmd -> cmd.startsWith(input))
+                .collect(Collectors.toList());
+                
+        } else if (args.length == 2) {
+            String subCommand = args[0].toLowerCase();
+            
+            switch (subCommand) {
+                case "removeword":
+                    // 补全现有敏感词
+                    String wordInput = args[1].toLowerCase();
+                    completions = sensitiveWords.stream()
+                        .filter(word -> word.toLowerCase().startsWith(wordInput))
+                        .limit(10) // 限制显示数量
+                        .collect(Collectors.toList());
+                    break;
+                    
+                case "addblacklist":
+                case "removeblacklist":
+                    // 补全在线玩家名
+                    String playerInput = args[1].toLowerCase();
+                    completions = Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(name -> name.toLowerCase().startsWith(playerInput))
+                        .collect(Collectors.toList());
+                    break;
+                    
+                case "violations":
+                case "resetviolations":
+                    // 补全有违规记录的玩家
+                    String violationInput = args[1].toLowerCase();
+                    completions = violationCounter.getAllViolations().keySet().stream()
+                        .filter(name -> name.toLowerCase().startsWith(violationInput))
+                        .collect(Collectors.toList());
+                    break;
+                    
+                case "test":
+                    // 提供测试建议
+                    if (args[1].isEmpty()) {
+                        completions.add("输入要测试的消息...");
+                    }
+                    break;
+            }
+        } else if (args.length == 3) {
+            String subCommand = args[0].toLowerCase();
+            
+            if ("resetviolations".equals(subCommand) && "all".startsWith(args[2].toLowerCase())) {
+                completions.add("all");
+            }
+        }
+
+        // 如果没有匹配项，返回空列表而不是 null
+        return completions.isEmpty() ? new ArrayList<>() : completions;
+    }
+
+    /**
+     * 获取命令使用提示
+     */
+    private List<String> getCommandUsage(String command) {
+        switch (command.toLowerCase()) {
+            case "addword":
+                return Arrays.asList("<敏感词>");
+            case "removeword":
+                return Arrays.asList("<敏感词>");
+            case "addblacklist":
+                return Arrays.asList("<玩家名>");
+            case "removeblacklist":
+                return Arrays.asList("<玩家名>");
+            case "test":
+                return Arrays.asList("<测试消息>");
+            case "violations":
+                return Arrays.asList("[玩家名]");
+            case "resetviolations":
+                return Arrays.asList("[玩家名|all]");
+            default:
+                return new ArrayList<>();
+        }
     }
 }
