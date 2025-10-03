@@ -23,31 +23,59 @@ log-settings:
   # 日志文件名
   log-file: "chatfilter.log"
 
-# 阶梯式处罚配置
+# 阶梯式处罚配置 (使用 CMI 插件命令)
 # 根据违规次数执行不同的处罚
 punishment-stages:
   1:
-    # 第一次违规的处罚
-    warning-message: "&c[第1次警告] 请文明聊天! 检测到敏感词: %word%"
+    # 第一次违规 - 警告
+    warning-message: "&e[&c第1次警告&e] &f请文明聊天! 检测到敏感词: &c%word%"
     commands:
-      - "say 警告: 玩家 %player% 使用了敏感词，请大家文明聊天"
+      - "cmi broadcast &e[&6聊天监控&e] &f玩家 &c%player% &f使用了不当言辞，请大家文明聊天"
   2:
-    # 第二次违规的处罚
-    warning-message: "&c[第2次警告] 您已被禁言10分钟! 敏感词: %word%"
+    # 第二次违规 - 禁言10分钟
+    warning-message: "&e[&c第2次警告&e] &f您已被禁言 &c10分钟&f! 敏感词: &c%word%"
     commands:
-      - "mute %player% 10m 使用敏感词: %word%"
+      - "cmi mute %player% 10m -s 使用敏感词: %word%"
+      - "cmi msg %player% &c您因使用敏感词被禁言10分钟，请反思后文明聊天"
   3:
-    # 第三次违规的处罚
-    warning-message: "&c[第3次警告] 您已被禁言1小时! 敏感词: %word%"
+    # 第三次违规 - 禁言1小时
+    warning-message: "&e[&c第3次警告&e] &f您已被禁言 &c1小时&f! 敏感词: &c%word%"
     commands:
-      - "mute %player% 1h 多次使用敏感词: %word%"
+      - "cmi mute %player% 1h -s 多次使用敏感词: %word%"
+      - "cmi msg %player% &c您因多次使用敏感词被禁言1小时，请严格遵守聊天规则"
   4:
-    # 第四次违规的处罚
-    warning-message: "&c[第4次警告] 您已被临时封禁1天! 敏感词: %word%"
+    # 第四次违规 - 禁言6小时
+    warning-message: "&e[&c第4次警告&e] &f您已被禁言 &c6小时&f! 敏感词: &c%word%"
     commands:
-      - "tempban %player% 1d 严重违规使用敏感词"
+      - "cmi mute %player% 6h -s 严重违规使用敏感词: %word%"
+      - "cmi msg %player% &4您因严重违规被禁言6小时，再次违规将面临封禁处罚"
   5:
-    # 第五次及以上的处罚
-    warning-message: "&c[严重警告] 您已被临时封禁3天! 敏感词: %word%"
+    # 第五次违规 - 临时封禁1天
+    warning-message: "&e[&4严重警告&e] &f您已被临时封禁 &41天&f! 敏感词: &c%word%"
     commands:
-      - "tempban %player% 3d 屡次违规使用敏感词"
+      - "cmi tempban %player% 1d -s 屡次违规使用敏感词"
+      - "cmi broadcast &4[&c封禁通知&4] &f玩家 &c%player% &f因屡次违规被临时封禁1天"
+  6:
+    # 第六次违规 - 临时封禁3天
+    warning-message: "&e[&4严重警告&e] &f您已被临时封禁 &43天&f! 敏感词: &c%word%"
+    commands:
+      - "cmi tempban %player% 3d -s 严重屡次违规使用敏感词"
+      - "cmi broadcast &4[&c封禁通知&4] &f玩家 &c%player% &f因严重违规被临时封禁3天"
+  7:
+    # 第七次及以上违规 - 临时封禁7天
+    warning-message: "&e[&4最终警告&e] &f您已被临时封禁 &47天&f! 敏感词: &c%word%"
+    commands:
+      - "cmi tempban %player% 7d -s 极度严重屡次违规使用敏感词"
+      - "cmi broadcast &4[&c严重封禁&4] &f玩家 &c%player% &f因极度违规被临时封禁7天"
+      - "cmi mail send 管理员 &c紧急通知: 玩家%player%已达到7次违规，建议考虑永久封禁"
+
+# CMI 集成设置
+cmi-integration:
+  # 是否启用 CMI 集成
+  enabled: true
+  # 禁言时是否发送私信通知
+  send-private-message: true
+  # 是否在全服广播严重违规
+  broadcast-serious-violations: true
+  # 严重违规的阈值 (第几次开始广播)
+  serious-violation-threshold: 5

@@ -35,6 +35,7 @@
 - Minecraft 服务器版本: 1.12.2+
 - 服务器类型: Spigot / Paper
 - Java 版本: 8+
+- **依赖插件**: CMI (用于禁言和封禁功能)
 
 ### 安装步骤
 1. 下载 `ChatFilter-1.0.0.jar` 文件
@@ -84,16 +85,29 @@ detection-settings:
   use-regex: false                     # 是否使用正则表达式
   case-sensitive: false                # 是否区分大小写
 
-# 处罚阶梯
+# 处罚阶梯 (使用 CMI 插件命令)
 punishment-stages:
   1:
+    warning-message: "&e[&c第1次警告&e] &f请文明聊天! 检测到敏感词: &c%word%"
     commands:
-      - "kick %player% 请注意言辞!"
-    warning: "&c[警告] 检测到敏感词，这是第 %count% 次违规!"
+      - "cmi broadcast &e[&6聊天监控&e] &f玩家 &c%player% &f使用了不当言辞，请大家文明聊天"
   2:
+    warning-message: "&e[&c第2次警告&e] &f您已被禁言 &c10分钟&f! 敏感词: &c%word%"
     commands:
-      - "tempban %player% 1h 多次使用敏感词"
-    warning: "&c[处罚] 你已被临时封禁 1 小时!"
+      - "cmi mute %player% 10m -s 使用敏感词: %word%"
+      - "cmi msg %player% &c您因使用敏感词被禁言10分钟，请反思后文明聊天"
+  5:
+    warning-message: "&e[&4严重警告&e] &f您已被临时封禁 &41天&f! 敏感词: &c%word%"
+    commands:
+      - "cmi tempban %player% 1d -s 屡次违规使用敏感词"
+      - "cmi broadcast &4[&c封禁通知&4] &f玩家 &c%player% &f因屡次违规被临时封禁1天"
+
+# CMI 集成设置
+cmi-integration:
+  enabled: true                        # 启用 CMI 集成
+  send-private-message: true           # 发送私信通知
+  broadcast-serious-violations: true   # 广播严重违规
+  serious-violation-threshold: 5       # 严重违规阈值
 
 # 日志设置
 log-settings:
