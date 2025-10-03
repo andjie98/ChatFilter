@@ -1,0 +1,65 @@
+name: CI-Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write   # 允许创建 Tag 和 Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # 需要完整历史计算版本号
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+
+      - name: Build plugin
+        run: mvn clean package -B
+
+      # ---- 自动版本号 ----
+      - name: Calc next tag
+        id: tag
+        run: |
+          # 获取最新 tag（如 v1.2.3）或初始值
+          latest=$(git describe --tags --match="v*" --abbrev=0 2>/dev || echo "v0.0.0")
+          # 去掉 v 并按 . 分割
+          IFS=. read -r major minor patch <<<"${latest#v}"
+          # 日期小版本：2025-09-15 -> 915
+          datePatch=$(date +%-m%-d)
+          # 如果今天已发布，则追加自增序号
+          if [[ "$latest" == *"$datePatch"* ]]; then
+            suffix=${latest##*.}
+            patch=$((suffix + 1))
+          else
+            patch=$datePatch
+          fi
+          next="v${major}.${minor}.${patch}"
+          echo "tag=$next" >> $GITHUB_OUTPUT
+
+      # ---- 创建 Release 并上传 jar ----
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "自动构建 ${{ steps.tag.outputs.tag }}"
+          body: "推送触发自动发布，详见提交记录。"
+          files: target/*.jar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
