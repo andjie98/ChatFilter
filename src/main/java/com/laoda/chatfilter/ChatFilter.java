@@ -2,13 +2,14 @@ package com.laoda.chatfilter;
 
 import com.laoda.chatfilter.algorithm.AhoCorasick;
 import com.laoda.chatfilter.config.ConfigValidator;
+import com.laoda.chatfilter.i18n.Messages;
 import com.laoda.chatfilter.logging.ChatFilterLogger;
 import com.laoda.chatfilter.util.ViolationCounter;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
+import org.bukkit.command.TabExecutor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -24,13 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
+public class ChatFilter extends JavaPlugin implements Listener, TabExecutor {
 
     // 核心组件
     private AhoCorasick wordMatcher;
     private ViolationCounter violationCounter;
     private ChatFilterLogger logger;
     private ConfigValidator configValidator;
+    private Messages messages;
 
     // 配置数据
     private Set<String> sensitiveWords;
@@ -73,10 +75,10 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
             // 设置每日重置任务
             setupDailyResetTask();
 
-            logger.info("ChatFilter 插件已启用!");
-            logger.info("已加载 " + sensitiveWords.size() + " 个敏感词");
-            logger.info("已加载 " + blacklistPlayers.size() + " 个黑名单玩家");
-            logger.info("已加载 " + punishmentCommands.size() + " 个处罚阶梯");
+            logger.info(messages.getRawMessage("system.plugin-enabled"));
+            logger.info(messages.getRawMessage("system.loading-words", sensitiveWords.size()));
+            logger.info(messages.getRawMessage("system.loading-blacklist", blacklistPlayers.size()));
+            logger.info(messages.getRawMessage("system.loading-punishments", punishmentCommands.size()));
             
         } catch (Exception e) {
             getLogger().severe("插件启用失败: " + e.getMessage());
@@ -91,10 +93,13 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
             logger.info("ChatFilter 插件正在关闭...");
             logger.shutdown();
         }
-        getLogger().info("ChatFilter 插件已禁用!");
+        if (messages != null) {
+            getLogger().info(messages.getRawMessage("system.plugin-disabled"));
+        }
     }
 
     private void initializeComponents() {
+        this.messages = new Messages(this);
         this.logger = new ChatFilterLogger(this);
         this.configValidator = new ConfigValidator();
         this.violationCounter = new ViolationCounter();
@@ -396,7 +401,7 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
                         return true;
                 }
             } catch (Exception e) {
-                sender.sendMessage("§c命令执行出错: " + e.getMessage());
+                sender.sendMessage(messages.getMessage("system.command-error", e.getMessage()));
                 logger.warning("命令执行异常: " + e.getMessage(), e);
                 return true;
             }
@@ -405,31 +410,32 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage("§6===== ChatFilter 帮助 =====");
-        sender.sendMessage("§e/cf reload §7- 重载插件配置");
-        sender.sendMessage("§e/cf addword <词语> §7- 添加敏感词");
-        sender.sendMessage("§e/cf removeword <词语> §7- 删除敏感词");
-        sender.sendMessage("§e/cf listwords §7- 列出所有敏感词");
-        sender.sendMessage("§e/cf addblacklist <玩家> §7- 添加黑名单玩家");
-        sender.sendMessage("§e/cf removeblacklist <玩家> §7- 删除黑名单玩家");
-        sender.sendMessage("§e/cf listblacklist §7- 列出黑名单玩家");
-        sender.sendMessage("§e/cf test <消息> §7- 测试消息是否包含敏感词");
-        sender.sendMessage("§e/cf violations [玩家] §7- 查看违规次数");
-        sender.sendMessage("§e/cf resetviolations [玩家] §7- 重置违规次数");
-        sender.sendMessage("§e/cf stats §7- 查看插件统计信息");
+        sender.sendMessage(messages.getMessage("help.header"));
+        sender.sendMessage(messages.getMessage("help.reload"));
+        sender.sendMessage(messages.getMessage("help.addword"));
+        sender.sendMessage(messages.getMessage("help.removeword"));
+        sender.sendMessage(messages.getMessage("help.listwords"));
+        sender.sendMessage(messages.getMessage("help.addblacklist"));
+        sender.sendMessage(messages.getMessage("help.removeblacklist"));
+        sender.sendMessage(messages.getMessage("help.listblacklist"));
+        sender.sendMessage(messages.getMessage("help.test"));
+        sender.sendMessage(messages.getMessage("help.violations"));
+        sender.sendMessage(messages.getMessage("help.resetviolations"));
+        sender.sendMessage(messages.getMessage("help.stats"));
     }
 
     private boolean reloadCommand(CommandSender sender) {
         try {
             reloadConfig();
+            messages.reload();
             wordsConfig = YamlConfiguration.loadConfiguration(wordsFile);
             blacklistConfig = YamlConfiguration.loadConfiguration(blacklistFile);
             loadAndValidateConfiguration();
-            sender.sendMessage("§aChatFilter 配置已重载!");
+            sender.sendMessage(messages.getMessage("system.config-reloaded"));
             logger.logConfigReload("手动重载", true);
             return true;
         } catch (Exception e) {
-            sender.sendMessage("§c配置重载失败: " + e.getMessage());
+            sender.sendMessage(messages.getMessage("system.config-reload-failed", e.getMessage()));
             logger.logConfigReload("手动重载", false);
             return true;
         }
@@ -437,7 +443,7 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
 
     private boolean addWordCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("§c用法: /cf addword <词语>");
+            sender.sendMessage(messages.getMessage("command.addword.usage"));
             return true;
         }
 
@@ -450,21 +456,21 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
                 wordsConfig.save(wordsFile);
                 sensitiveWords.add(word);
                 wordMatcher.build(sensitiveWords);
-                sender.sendMessage("§a已添加敏感词: " + word);
+                sender.sendMessage(messages.getMessage("command.addword.success", word));
                 logger.info("管理员 " + sender.getName() + " 添加敏感词: " + word);
             } catch (IOException e) {
-                sender.sendMessage("§c保存失败: " + e.getMessage());
+                sender.sendMessage(messages.getMessage("command.addword.save-failed", e.getMessage()));
                 logger.warning("保存敏感词文件失败", e);
             }
         } else {
-            sender.sendMessage("§c敏感词已存在: " + word);
+            sender.sendMessage(messages.getMessage("command.addword.already-exists", word));
         }
         return true;
     }
 
     private boolean removeWordCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("§c用法: /cf removeword <词语>");
+            sender.sendMessage(messages.getMessage("command.removeword.usage"));
             return true;
         }
 
@@ -477,30 +483,30 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
                 wordsConfig.save(wordsFile);
                 sensitiveWords.remove(word);
                 wordMatcher.build(sensitiveWords);
-                sender.sendMessage("§a已删除敏感词: " + word);
+                sender.sendMessage(messages.getMessage("command.removeword.success", word));
                 logger.info("管理员 " + sender.getName() + " 删除敏感词: " + word);
             } catch (IOException e) {
-                sender.sendMessage("§c保存失败: " + e.getMessage());
+                sender.sendMessage(messages.getMessage("command.removeword.save-failed", e.getMessage()));
                 logger.warning("保存敏感词文件失败", e);
             }
         } else {
-            sender.sendMessage("§c敏感词不存在: " + word);
+            sender.sendMessage(messages.getMessage("command.removeword.not-found", word));
         }
         return true;
     }
 
     private boolean listWordsCommand(CommandSender sender) {
         List<String> words = new ArrayList<>(sensitiveWords);
-        sender.sendMessage("§6===== 敏感词列表 (" + words.size() + "个) =====");
+        sender.sendMessage(messages.getMessage("command.listwords.header", String.valueOf(words.size())));
         for (int i = 0; i < words.size(); i++) {
-            sender.sendMessage("§e" + (i + 1) + ". §7" + words.get(i));
+            sender.sendMessage(messages.getMessage("command.listwords.item", String.valueOf(i + 1), words.get(i)));
         }
         return true;
     }
 
     private boolean addBlacklistCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("§c用法: /cf addblacklist <玩家>");
+            sender.sendMessage(messages.getMessage("command.addblacklist.usage"));
             return true;
         }
 
@@ -512,21 +518,21 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
             try {
                 blacklistConfig.save(blacklistFile);
                 blacklistPlayers.add(player);
-                sender.sendMessage("§a已添加黑名单玩家: " + player);
+                sender.sendMessage(messages.getMessage("command.addblacklist.success", player));
                 logger.info("管理员 " + sender.getName() + " 添加黑名单玩家: " + player);
             } catch (IOException e) {
-                sender.sendMessage("§c保存失败: " + e.getMessage());
+                sender.sendMessage(messages.getMessage("command.addblacklist.save-failed", e.getMessage()));
                 logger.warning("保存黑名单文件失败", e);
             }
         } else {
-            sender.sendMessage("§c黑名单玩家已存在: " + player);
+            sender.sendMessage(messages.getMessage("command.addblacklist.already-exists", player));
         }
         return true;
     }
 
     private boolean removeBlacklistCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("§c用法: /cf removeblacklist <玩家>");
+            sender.sendMessage(messages.getMessage("command.removeblacklist.usage"));
             return true;
         }
 
@@ -538,30 +544,30 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
             try {
                 blacklistConfig.save(blacklistFile);
                 blacklistPlayers.remove(player);
-                sender.sendMessage("§a已删除黑名单玩家: " + player);
+                sender.sendMessage(messages.getMessage("command.removeblacklist.success", player));
                 logger.info("管理员 " + sender.getName() + " 删除黑名单玩家: " + player);
             } catch (IOException e) {
-                sender.sendMessage("§c保存失败: " + e.getMessage());
+                sender.sendMessage(messages.getMessage("command.removeblacklist.save-failed", e.getMessage()));
                 logger.warning("保存黑名单文件失败", e);
             }
         } else {
-            sender.sendMessage("§c黑名单玩家不存在: " + player);
+            sender.sendMessage(messages.getMessage("command.removeblacklist.not-found", player));
         }
         return true;
     }
 
     private boolean listBlacklistCommand(CommandSender sender) {
         List<String> blacklist = new ArrayList<>(blacklistPlayers);
-        sender.sendMessage("§6===== 黑名单玩家列表 (" + blacklist.size() + "个) =====");
+        sender.sendMessage(messages.getMessage("command.listblacklist.header", String.valueOf(blacklist.size())));
         for (int i = 0; i < blacklist.size(); i++) {
-            sender.sendMessage("§e" + (i + 1) + ". §7" + blacklist.get(i));
+            sender.sendMessage(messages.getMessage("command.listblacklist.item", String.valueOf(i + 1), blacklist.get(i)));
         }
         return true;
     }
 
     private boolean testCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("§c用法: /cf test <消息>");
+            sender.sendMessage(messages.getMessage("command.test.usage"));
             return true;
         }
 
@@ -572,9 +578,9 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
 
         String detectedWord = containsSensitiveWord(message.toString().trim());
         if (detectedWord != null) {
-            sender.sendMessage("§c检测到敏感词: " + detectedWord);
+            sender.sendMessage(messages.getMessage("command.test.detected", detectedWord));
         } else {
-            sender.sendMessage("§a未检测到敏感词");
+            sender.sendMessage(messages.getMessage("command.test.clean"));
         }
         return true;
     }
@@ -582,14 +588,14 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
     private boolean viewViolationsCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
             Map<String, Integer> violations = violationCounter.getAllViolations();
-            sender.sendMessage("§6===== 玩家违规次数 (" + violations.size() + "人) =====");
+            sender.sendMessage(messages.getMessage("command.violations.header", String.valueOf(violations.size())));
             for (Map.Entry<String, Integer> entry : violations.entrySet()) {
-                sender.sendMessage("§e" + entry.getKey() + ": §7" + entry.getValue() + " 次");
+                sender.sendMessage(messages.getMessage("command.violations.item", entry.getKey(), String.valueOf(entry.getValue())));
             }
         } else {
             String playerName = args[1];
             int count = violationCounter.getViolationCount(playerName);
-            sender.sendMessage("§e玩家 " + playerName + " 今日违规次数: §7" + count + " 次");
+            sender.sendMessage(messages.getMessage("command.violations.player", playerName, String.valueOf(count)));
         }
         return true;
     }
@@ -597,33 +603,40 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
     private boolean resetViolationsCommand(CommandSender sender, String[] args) {
         if (args.length < 2) {
             int resetCount = violationCounter.resetAllViolations();
-            sender.sendMessage("§a已重置 " + resetCount + " 个玩家的违规次数");
+            sender.sendMessage(messages.getMessage("command.resetviolations.all-success", String.valueOf(resetCount)));
             logger.info("管理员 " + sender.getName() + " 重置了所有玩家的违规次数");
         } else {
             String playerName = args[1];
             int oldCount = violationCounter.resetPlayerViolations(playerName);
             if (oldCount > 0) {
-                sender.sendMessage("§a已重置玩家 " + playerName + " 的违规次数 (原: " + oldCount + " 次)");
+                sender.sendMessage(messages.getMessage("command.resetviolations.player-success", playerName, String.valueOf(oldCount)));
                 logger.info("管理员 " + sender.getName() + " 重置了玩家 " + playerName + " 的违规次数");
             } else {
-                sender.sendMessage("§c玩家 " + playerName + " 没有违规记录");
+                sender.sendMessage(messages.getMessage("command.resetviolations.no-record", playerName));
             }
         }
         return true;
     }
 
     private boolean statsCommand(CommandSender sender) {
-        sender.sendMessage("§6===== ChatFilter 统计信息 =====");
-        sender.sendMessage("§e插件状态: §7" + (enabled ? "启用" : "禁用"));
-        sender.sendMessage("§e敏感词数量: §7" + sensitiveWords.size());
-        sender.sendMessage("§e黑名单玩家: §7" + blacklistPlayers.size());
-        sender.sendMessage("§e违规玩家数: §7" + violationCounter.getViolationPlayerCount());
-        sender.sendMessage("§e总违规次数: §7" + violationCounter.getTotalViolations());
-        sender.sendMessage("§e检测模式: §7" + (useRegex ? "正则表达式" : "字符串匹配"));
-        sender.sendMessage("§e大小写敏感: §7" + (caseSensitive ? "是" : "否"));
-        sender.sendMessage("§e上次重置: §7" + violationCounter.getLastResetDate());
-        sender.sendMessage("§e日志级别: §7" + logger.getCurrentLevel());
-        sender.sendMessage("§e文件日志: §7" + (logger.isFileLoggingEnabled() ? "启用" : "禁用"));
+        sender.sendMessage(messages.getMessage("command.stats.header"));
+        sender.sendMessage(messages.getMessage("command.stats.status", enabled ? "启用" : "禁用"));
+        sender.sendMessage(messages.getMessage("command.stats.words-count", String.valueOf(sensitiveWords.size())));
+        sender.sendMessage(messages.getMessage("command.stats.blacklist-count", String.valueOf(blacklistPlayers.size())));
+        sender.sendMessage(messages.getMessage("command.stats.violation-players", String.valueOf(violationCounter.getViolationPlayerCount())));
+        sender.sendMessage(messages.getMessage("command.stats.total-violations", String.valueOf(violationCounter.getTotalViolations())));
+        sender.sendMessage(messages.getMessage("command.stats.detection-mode", useRegex ? "正则表达式" : "字符串匹配"));
+        sender.sendMessage(messages.getMessage("command.stats.case-sensitive", caseSensitive ? "是" : "否"));
+        sender.sendMessage(messages.getMessage("command.stats.last-reset", violationCounter.getLastResetDate()));
+        sender.sendMessage(messages.getMessage("command.stats.log-level", logger.getCurrentLevel().toString()));
+        sender.sendMessage(messages.getMessage("command.stats.file-logging", logger.isFileLoggingEnabled() ? "启用" : "禁用"));
+        // 显示命令使用提示示例
+        sender.sendMessage("§7命令使用示例:");
+        List<String> usageExample = getCommandUsage("addword");
+        if (!usageExample.isEmpty()) {
+            sender.sendMessage("§7  /chatfilter addword " + String.join(" ", usageExample));
+        }
+        
         return true;
     }
 
@@ -726,4 +739,6 @@ public class ChatFilter extends JavaPlugin implements Listener, TabCompleter {
                 return new ArrayList<>();
         }
     }
+
+
 }
