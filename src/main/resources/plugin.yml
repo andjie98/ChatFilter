@@ -1,20 +1,20 @@
 name: ChatFilter
-version: 2.0.0
+version: 1.0.0
 main: com.laoda.chatfilter.ChatFilter
 api-version: 1.12
 authors: [laoda]
-description: Advanced chat filter with Aho-Corasick algorithm, thread-safe violation tracking, and comprehensive logging
+description: 高性能聊天过滤插件，采用Aho-Corasick算法，支持线程安全违规追踪和完整日志系统
 website: https://github.com/laoda/ChatFilter
 commands:
   chatfilter:
-    description: Manage chat filter settings
+    description: 管理聊天过滤器设置
     usage: /<command> [reload|addword|removeword|listwords|addblacklist|removeblacklist|listblacklist|test|violations|resetviolations|stats]
     aliases: [cf]
     permission: chatfilter.admin
 permissions:
   chatfilter.admin:
-    description: Allows access to all ChatFilter commands
+    description: 允许访问所有ChatFilter命令
     default: op
   chatfilter.bypass:
-    description: Bypass chat filtering
+    description: 绕过聊天过滤
     default: false
